@@ -7,7 +7,6 @@ import os.path as osp
 import shutil
 import sys
 import time
-import torch
 from aider.coders import Coder
 from aider.io import InputOutput
 from aider.models import Model
@@ -71,24 +70,12 @@ def parse_arguments():
         help="Improve based on reviews.",
     )
     parser.add_argument(
-        "--gpus",
-        type=str,
-        default=None,
-        help="Comma-separated list of GPU IDs to use (e.g., '0,1,2'). If not specified, all available GPUs will be used.",
-    )
-    parser.add_argument(
         "--num-ideas",
         type=int,
         default=50,
         help="Number of ideas to generate",
     )
     return parser.parse_args()
-
-
-def get_available_gpus(gpu_ids=None):
-    if gpu_ids is not None:
-        return [int(gpu_id) for gpu_id in gpu_ids.split(",")]
-    return list(range(torch.cuda.device_count()))
 
 
 def worker(
@@ -100,10 +87,9 @@ def worker(
         client_model,
         writeup,
         improvement,
-        gpu_id,
+        id,
 ):
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-    print(f"Worker {gpu_id} started.")
+    print(f"Worker {id} started.")
     while True:
         idea = queue.get()
         if idea is None:
@@ -120,7 +106,7 @@ def worker(
             log_file=True,
         )
         print(f"Completed idea: {idea['Name']}, Success: {success}")
-    print(f"Worker {gpu_id} finished.")
+    print(f"Worker {id} finished.")
 
 
 def do_idea(
@@ -287,16 +273,6 @@ def do_idea(
 if __name__ == "__main__":
     args = parse_arguments()
 
-    # Check available GPUs and adjust parallel processes if necessary
-    available_gpus = get_available_gpus(args.gpus)
-    if args.parallel > len(available_gpus):
-        print(
-            f"Warning: Requested {args.parallel} parallel processes, but only {len(available_gpus)} GPUs available. Adjusting to {len(available_gpus)}."
-        )
-        args.parallel = len(available_gpus)
-
-    print(f"Using GPUs: {available_gpus}")
-
     # Create client
     client, client_model = create_client(args.model)
 
@@ -331,7 +307,6 @@ if __name__ == "__main__":
 
         processes = []
         for i in range(args.parallel):
-            gpu_id = available_gpus[i % len(available_gpus)]
             p = multiprocessing.Process(
                 target=worker,
                 args=(
@@ -343,7 +318,7 @@ if __name__ == "__main__":
                     client_model,
                     args.writeup,
                     args.improvement,
-                    gpu_id,
+                    i,
                 ),
             )
             p.start()
