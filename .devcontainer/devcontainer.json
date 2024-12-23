@@ -2,7 +2,7 @@
 	"name": "AIScientist",
 	"image": "mcr.microsoft.com/devcontainers/base:jammy",
 	"features": {
-		"ghcr.io/devcontainers/features/python:1.6.5": {
+		"ghcr.io/devcontainers/features/python:1.7.0": {
 			"installTools": true,
 			"version": "3.11"
 		},
